@@ -1,5 +1,6 @@
 # ibird Explorer
 
+ [[Demo](https://iassetsorg.github.io/ibird-explorer/)]
 ## Description
 
 **ibird Explorer** is an open-source tool that allows users to retrieve and read messages and content from the ibird.io social media platform, even when the website is offline. Powered by Hedera Hashgraph, ibird.io stores all user actions, including posts, comments, likes, and follows, securely on the Hedera network. Each post has a unique hash on Hedera, enabling users to prove ownership of their content.
