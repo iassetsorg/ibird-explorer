@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Meta tags, Bootstrap CSS, Font -->
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>iBird Explorer</title>
+
+  <!-- Stylesheet with all the necessary CSS rules --> 
+
+  <style>
+    body {
+      font-family: 'Montserrat', sans-serif;  
+      background: linear-gradient(135deg, #8BC6EC 0%, #9599E2 100%);
+      color: #fff;
+      padding: 20px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .animated-box {
+      max-width: 600px;
+      width: 100%;
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.3);  
+      padding: 20px;
+      text-align: center;
+      animation: fadeInUp 1s;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        transform: translateY(40px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .form-control {
+      background: rgba(255,255,255,0.1) !important;
+      border: none;
+      color: #fff;
+    }
+    
+    .btn {
+      background: #3498db;
+      border: none;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .highlighted {
+      color: #0077ff;
+    }
+
+    img, 
+    video {
+      max-width: 100%;
+      border-radius: 12px;
+    }
+
+    a {
+      color: #3498DB;
+      text-decoration: none;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    @media (max-width: 576px) {
+      h1 {
+        font-size: 28px;
+      }
+      
+      .animated-box {
+        padding: 15px;
+      }
+    }
+
+  </style>
+
+</head>
+
+<body>
+  <!-- Animated box that houses the main content of the site -->
+  <div class="animated-box">
+        <!-- Heading and subheading -->
+    <h1>iBird Explorer</h1>
+    <h2>Read Messages Directly from Hedera Network</h2>
+
+  <!-- The input for the transaction ID and the 'Get Message' button -->
+    <div class="input-box">
+      <div class="input-group">
+        <input type="text" class="form-control" placeholder="Enter Transaction ID" id="transactionIdInput">
+        <div class="input-group-append">
+          <button class="btn btn-outline-light" onclick="convertAndFetchData()">Get Message</button>
+        </div>
+      </div>
+    </div>
+    <!-- The div where the results will be displayed -->
+    <div id="result"></div>
+
+  </div>
+  <!-- JS Scripting -->
+      <script>
+
+const input = document.getElementById('transactionIdInput');
+
+input.addEventListener('keyup', (e) => {
+  if (e.key === 'Enter') {
+    convertAndFetchData(); 
+  }
+});
+      // This is where the meat of the code is. It takes the user input from the text box,
+      // Fetches and processes data from the Hedera network, then displays the results.
+        async function convertAndFetchData() {
+            const transactionIdInput = document.getElementById('transactionIdInput').value;
+            const [a, b] = transactionIdInput.split("@");
+            const c = b.split(".").join("-");
+            const convertedTransactionId = `${a}-${c}`;
+
+            const firstRequestUrl = `https://mainnet-public.mirrornode.hedera.com/api/v1/transactions/${convertedTransactionId.replace(" ", "")}`;
+            try {
+                const firstResponse = await fetch(firstRequestUrl);
+                const firstData = await firstResponse.json();
+                const consensusTimestamp = firstData.transactions[0].consensus_timestamp;
+
+                const secondRequestUrl = `https://mainnet-public.mirrornode.hedera.com/api/v1/topics/messages/${consensusTimestamp}`;
+                const secondResponse = await fetch(secondRequestUrl);
+                const secondData = await secondResponse.json();
+
+                const base64Message = secondData.message;
+                const decodedMessage = new TextDecoder("utf-8").decode(Uint8Array.from(atob(base64Message), c => c.charCodeAt(0)));
+
+                let parsedMessage;
+                try {
+                    parsedMessage = JSON.parse(decodedMessage);
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while parsing the message as JSON.'
+                    });
+                }
+
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `<p><strong>Transaction ID:</strong> ${convertedTransactionId}</p>`;
+                resultDiv.innerHTML += `<p><strong>Consensus Timestamp:</strong> ${consensusTimestamp}</p>`;
+
+                if (parsedMessage) {
+                    resultDiv.innerHTML += `<p><strong>Message Sender:</strong> ${parsedMessage.address}</p>`;
+                    if(parsedMessage.media) {
+                        const mediaElement = document.createElement('div');
+                        const mediaLink = document.createElement('a');
+                        mediaLink.href = `https://arweave.net/${parsedMessage.media}`;
+                        mediaLink.textContent = parsedMessage.media;
+
+                        const contentType = await getContentType(`https://arweave.net/${parsedMessage.media}`);
+                        if(contentType.startsWith('image')) {
+                            const imgElement = document.createElement('img');
+                            imgElement.src = `https://arweave.net/${parsedMessage.media}`;
+                            mediaElement.appendChild(imgElement);
+                        } else if(contentType.startsWith('video')) {
+                            const videoElement = document.createElement('video');
+                            videoElement.src = `https://arweave.net/${parsedMessage.media}`;
+                            videoElement.controls = true;
+                            mediaElement.appendChild(videoElement);
+                        } else {
+                            mediaElement.appendChild(mediaLink);
+                        }
+
+                        resultDiv.appendChild(mediaElement);
+                 
+                    }
+                    resultDiv.innerHTML += `<p><strong>Media Hash:</strong> ${parsedMessage.media}</p>`;
+                    const formattedMessage = formatMessage(parsedMessage.message);
+                    resultDiv.innerHTML += `<p><strong>Message:</strong> <pre>${formattedMessage}</pre></p>`;
+                    
+
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while fetching data. Please check your input and try again.'
+                });
+            }
+        }
+
+      // This function formats the text message by finding URLs and making them into clickable links,
+      // and highlighting words starting with #, similarly to how it's done on Twitter.
+        function formatMessage(message) {
+            const urlPattern = /(https?:\/\/[^\s]+)/g;
+            const messageWithLinks = message.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
+
+            const highlightPattern = /([#$][\w]+)/g;
+            const formattedMessage = messageWithLinks.replace(highlightPattern, '<span class="highlighted">$1</span>');
+
+            return formattedMessage;
+        }
+        
+      // This helper function sends a fetch request to a URL and reads the 'content-type' from the response headers
+        async function getContentType(url) {
+            const response = await fetch(url);
+            const headers = response.headers;
+            return headers.get('content-type');
+        }
+    </script>
+
+</body>
+</html>
